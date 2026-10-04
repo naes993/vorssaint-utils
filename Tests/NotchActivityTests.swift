@@ -99,21 +99,54 @@ enum NotchActivityTests {
     }
 
     private static func lowBatteryContracts(_ suite: TestSuite) {
+        let keys = [DefaultsKey.notchLowBatteryTint, DefaultsKey.notchLowBatteryThreshold, DefaultsKey.notchLowBatteryEarly,
+                    DefaultsKey.notchLowBatteryEarlyThreshold, DefaultsKey.notchLowBatteryMenuBar]
         suite.expect(Defaults.registeredDefaults[DefaultsKey.notchLowBatteryTint] as? Bool == false
                && Defaults.registeredDefaults[DefaultsKey.notchLowBatteryThreshold] as? Int == 10
-               && SettingsBackupSupport.exportKeys().isSuperset(of: [DefaultsKey.notchLowBatteryTint,
-                                                                      DefaultsKey.notchLowBatteryThreshold]),
-               "the low battery tint starts off at 10% and travels with settings backups")
-        func low(_ percent: Int?, plugged: Bool = false, tint: Bool = true, threshold: Int = 10) -> Bool {
-            NotchSupport.restingBatteryIsLow(percent: percent, externalConnected: plugged, tint: tint, threshold: threshold)
+               && Defaults.registeredDefaults[DefaultsKey.notchLowBatteryEarly] as? Bool == false
+               && Defaults.registeredDefaults[DefaultsKey.notchLowBatteryEarlyThreshold] as? Int == 20
+               && Defaults.registeredDefaults[DefaultsKey.notchLowBatteryMenuBar] as? Bool == true
+               && SettingsBackupSupport.exportKeys().isSuperset(of: keys),
+               "the low battery warning starts off at 10%, amber at 20%, and travels with settings backups")
+        func warning(_ percent: Int?, plugged: Bool = false, tint: Bool = true, threshold: Int = 10,
+                     early: Bool = false, earlyThreshold: Int = 20) -> BatteryWarning {
+            NotchSupport.batteryWarning(percent: percent, externalConnected: plugged, tint: tint, threshold: threshold,
+                                        early: early, earlyThreshold: earlyThreshold)
         }
-        suite.expect(low(10) && low(3) && !low(11), "the charge turns red at or below the chosen level")
-        suite.expect(!low(5, tint: false), "the charge keeps its colour while the setting is off")
-        suite.expect(!low(5, plugged: true), "a Mac on power never shows a low charge")
-        suite.expect(!low(nil), "an unknown charge is never shown as low")
-        suite.expect(low(25, threshold: 25) && !low(26, threshold: 25), "the level can be adjusted")
-        suite.expect(low(5, threshold: 0) && !low(6, threshold: 0) && low(50, threshold: 99) && !low(51, threshold: 99),
-                     "a stored level outside the offered range is clamped")
+        suite.expect(warning(10) == .low && warning(3) == .low && warning(11) == .none,
+                     "the charge turns red at or below the chosen level")
+        suite.expect(warning(5, tint: false) == .none && warning(15, tint: false, early: true) == .none,
+                     "the charge keeps its colour while the setting is off")
+        suite.expect(warning(5, plugged: true) == .none && warning(15, plugged: true, early: true) == .none,
+                     "a Mac on power never shows a warning")
+        suite.expect(warning(nil) == .none, "an unknown charge is never shown as low")
+        suite.expect(warning(25, threshold: 25) == .low && warning(26, threshold: 25) == .none, "the red level can be adjusted")
+        suite.expect(warning(5, threshold: 0) == .low && warning(6, threshold: 0) == .none
+                     && warning(50, threshold: 99) == .low && warning(51, threshold: 99) == .none,
+                     "a stored red level outside the offered range is clamped")
+        suite.expect(warning(20, early: true) == .early && warning(11, early: true) == .early
+                     && warning(10, early: true) == .low && warning(21, early: true) == .none,
+                     "the amber warning comes first and gives way to red")
+        suite.expect(warning(15) == .none, "the amber warning stays off until it is turned on")
+        suite.expect(warning(40, early: true, earlyThreshold: 40) == .early && warning(41, early: true, earlyThreshold: 40) == .none
+                     && warning(80, early: true, earlyThreshold: 99) == .early && warning(81, early: true, earlyThreshold: 99) == .none,
+                     "the amber level can be adjusted and is clamped")
+        let domain = "com.vorssaint.tests.low-battery"
+        let defaults = UserDefaults(suiteName: domain)!
+        defaults.removePersistentDomain(forName: domain)
+        defer { defaults.removePersistentDomain(forName: domain) }
+        suite.expect(NotchSupport.batteryWarning(percent: 5, externalConnected: false, in: defaults) == .none,
+                     "missing preferences show no warning")
+        defaults.set(true, forKey: DefaultsKey.notchLowBatteryTint)
+        defaults.set(true, forKey: DefaultsKey.notchLowBatteryEarly)
+        suite.expect(NotchSupport.batteryWarning(percent: 10, externalConnected: false, in: defaults) == .low
+                     && NotchSupport.batteryWarning(percent: 20, externalConnected: false, in: defaults) == .early
+                     && NotchSupport.menuBarBatteryWarning(percent: 10, externalConnected: false, in: defaults) == .low,
+                     "stored preferences use the default levels and reach the menu bar")
+        defaults.set(false, forKey: DefaultsKey.notchLowBatteryMenuBar)
+        suite.expect(NotchSupport.menuBarBatteryWarning(percent: 10, externalConnected: false, in: defaults) == .none
+                     && NotchSupport.batteryWarning(percent: 10, externalConnected: false, in: defaults) == .low,
+                     "the menu bar can keep its usual colour while the island warns")
     }
 
     private static func alertContracts(_ suite: TestSuite) {

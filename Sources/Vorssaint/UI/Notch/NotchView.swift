@@ -681,16 +681,27 @@ struct NotchRestingStrip: View {
     @ObservedObject private var music = NotchMusicService.shared
     @AppStorage(DefaultsKey.notchLowBatteryTint) private var lowBatteryTint = false
     @AppStorage(DefaultsKey.notchLowBatteryThreshold) private var lowBatteryThreshold = NotchSupport.defaultLowBatteryThreshold
+    @AppStorage(DefaultsKey.notchLowBatteryEarly) private var earlyBatteryWarning = false
+    @AppStorage(DefaultsKey.notchLowBatteryEarlyThreshold) private var earlyBatteryThreshold = NotchSupport.defaultEarlyBatteryThreshold
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var geometry: NotchGeometry { displayGeometry ?? service.geometry }
 
-    /// Both halves of the charge turn red together once it runs low.
+    /// Both halves of the charge turn amber, then red, together as it runs low.
     private var batteryTint: Color {
-        NotchSupport.restingBatteryIsLow(percent: service.power.chargePercent,
-                                         externalConnected: service.power.externalConnected,
-                                         tint: lowBatteryTint, threshold: lowBatteryThreshold)
-            ? .red : .white.opacity(0.9)
+        switch NotchSupport.batteryWarning(percent: service.power.chargePercent,
+                                           externalConnected: service.power.externalConnected,
+                                           tint: lowBatteryTint, threshold: lowBatteryThreshold,
+                                           early: earlyBatteryWarning, earlyThreshold: earlyBatteryThreshold) {
+        case .low: return .red
+        case .early: return .orange
+        case .none: return .white.opacity(0.9)
+        }
+    }
+
+    /// The icon empties with the charge, as the menu bar's does.
+    private var batterySymbol: String {
+        MenuBarRenderer.batterySymbol(for: service.power.chargePercent ?? 100, isCharging: service.power.isCharging)
     }
 
     /// Centre battery content inside the wing's visible area, past its curved shoulder.
@@ -723,7 +734,7 @@ struct NotchRestingStrip: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 5))
                             }
                         case .battery:
-                            Image(systemName: "battery.100percent").font(.system(size: 12))
+                            Image(systemName: batterySymbol).font(.system(size: 12))
                                 .foregroundStyle(batteryTint)
                                 .padding(.leading, restingBatteryInset)
                         case .agents:

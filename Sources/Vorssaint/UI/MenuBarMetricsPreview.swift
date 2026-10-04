@@ -198,7 +198,7 @@ struct MenuBarMetricsPreview: View {
             .frame(width: MenuBarRenderer.rateBlockWidth(style: style),
                    height: style == .readable ? 22 : 20,
                    alignment: .center)
-        case let .batteryBlock(percent, isCharging, style):
+        case let .batteryBlock(percent, isCharging, _, style):
             HStack(spacing: style == .readable ? 5 : 4) {
                 Image(systemName: MenuBarRenderer.batterySymbol(for: percent, isCharging: isCharging))
                     .font(.system(size: style == .readable ? 17 : 15.5, weight: .regular))

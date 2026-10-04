@@ -857,6 +857,9 @@ enum DefaultsKey {
     static let notchCoversMenus = "notchCoversMenus"
     static let notchLowBatteryTint = "notchLowBatteryTint"
     static let notchLowBatteryThreshold = "notchLowBatteryThreshold"
+    static let notchLowBatteryEarly = "notchLowBatteryEarly"
+    static let notchLowBatteryEarlyThreshold = "notchLowBatteryEarlyThreshold"
+    static let notchLowBatteryMenuBar = "notchLowBatteryMenuBar"
     static let notchHoverDelay = "notchHoverDelay"
     static let notchReturnHome = "notchReturnHome"
     static let notchHomeModule = "notchHomeModule"
@@ -1426,6 +1429,9 @@ enum Defaults {
         DefaultsKey.notchCoversMenus: true,
         DefaultsKey.notchLowBatteryTint: false,
         DefaultsKey.notchLowBatteryThreshold: NotchSupport.defaultLowBatteryThreshold,
+        DefaultsKey.notchLowBatteryEarly: false,
+        DefaultsKey.notchLowBatteryEarlyThreshold: NotchSupport.defaultEarlyBatteryThreshold,
+        DefaultsKey.notchLowBatteryMenuBar: true,
         DefaultsKey.notchHoverDelay: NotchSupport.defaultHoverDelay,
         DefaultsKey.notchReturnHome: false,
         DefaultsKey.notchHomeModule: NotchModule.controls.rawValue,

@@ -201,7 +201,7 @@ enum MenuBarSegment {
     case usageBarBlock(label: String, fraction: Double?, style: MenuBarBlockStyle, pressure: MemoryPressure?)
     case networkBlock(down: String, up: String, style: MenuBarBlockStyle)
     case diskActivityBlock(read: String, write: String, style: MenuBarBlockStyle)
-    case batteryBlock(percent: Int, isCharging: Bool, style: MenuBarBlockStyle)
+    case batteryBlock(percent: Int, isCharging: Bool, warning: BatteryWarning = .none, style: MenuBarBlockStyle)
     case dot(MemoryPressure)
     case separator
 }
@@ -516,6 +516,7 @@ enum MenuBarRenderer {
                     } else if let chargePercent = enabled.contains(.battery) ? snapshot.power?.chargePercent : nil {
                         groups.append([.batteryBlock(percent: chargePercent,
                                                      isCharging: snapshot.power?.isCharging ?? false,
+                                                     warning: batteryWarning(for: snapshot.power),
                                                      style: style)])
                     } else if let temperature {
                         groups.append([.metricBlock(label: temperatureLabel("BAT"),
@@ -539,6 +540,7 @@ enum MenuBarRenderer {
                 if let charge = snapshot.power?.chargePercent {
                     groups.append([.batteryBlock(percent: charge,
                                                  isCharging: snapshot.power?.isCharging ?? false,
+                                                 warning: batteryWarning(for: snapshot.power),
                                                  style: style)])
                 }
             case .batteryTime:
@@ -737,9 +739,10 @@ enum MenuBarRenderer {
                 result.append(networkBlockAttachment(down: down, up: up, style: style))
             case let .diskActivityBlock(read, write, style):
                 result.append(diskActivityBlockAttachment(read: read, write: write, style: style))
-            case let .batteryBlock(percent, isCharging, style):
+            case let .batteryBlock(percent, isCharging, warning, style):
                 result.append(batteryBlockAttachment(percent: percent,
                                                      isCharging: isCharging,
+                                                     warning: warning,
                                                      style: style))
             case let .dot(pressure):
                 result.append(NSAttributedString(string: "●", attributes: [.foregroundColor: nsColor(for: pressure)]))
@@ -843,9 +846,11 @@ enum MenuBarRenderer {
 
     private static func batteryBlockAttachment(percent: Int,
                                                isCharging: Bool,
+                                               warning: BatteryWarning,
                                                style: MenuBarBlockStyle) -> NSAttributedString {
         let image = batteryBlockImage(percent: percent,
                                       isCharging: isCharging,
+                                      warning: warning,
                                       style: style)
         let attachment = NSTextAttachment()
         attachment.image = image
@@ -1069,12 +1074,14 @@ enum MenuBarRenderer {
 
     private static func batteryBlockImage(percent: Int,
                                           isCharging: Bool,
+                                          warning: BatteryWarning,
                                           style: MenuBarBlockStyle) -> NSImage {
         let clampedPercent = max(0, min(100, percent))
-        let cacheKey = "battery|\(clampedPercent)|\(isCharging)|\(style)" as NSString
+        let cacheKey = "battery|\(clampedPercent)|\(isCharging)|\(warning)|\(style)" as NSString
         if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
 
         let symbolName = batterySymbol(for: percent, isCharging: isCharging)
+        let warningColor = nsColor(for: warning)
         let symbolPointSize: CGFloat = style == .readable ? 17.0 : 15.5
         let valueFont = NSFont.monospacedDigitSystemFont(ofSize: style == .readable ? 13.0 : 12.0,
                                                          weight: .semibold)
@@ -1090,7 +1097,7 @@ enum MenuBarRenderer {
             NSColor.clear.setFill()
             rect.fill()
             let symbolConfig = NSImage.SymbolConfiguration(pointSize: symbolPointSize, weight: .regular)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [.labelColor]))
+                .applying(NSImage.SymbolConfiguration(paletteColors: [warningColor ?? .labelColor]))
             if let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
                 .withSymbolConfiguration(symbolConfig) {
                 let symbolSize = symbol.size
@@ -1107,7 +1114,8 @@ enum MenuBarRenderer {
                                         height: drawSize.height)
                 symbol.draw(in: symbolRect)
             }
-            let valueAttrs = dynamicTextAttributes(font: valueFont)
+            var valueAttrs = dynamicTextAttributes(font: valueFont)
+            if let warningColor { valueAttrs[.foregroundColor] = warningColor }
             let valueY = (height - valueSize.height) / 2
             (value as NSString).draw(at: NSPoint(x: symbolWidth + gap, y: valueY),
                                      withAttributes: valueAttrs)
@@ -1120,6 +1128,20 @@ enum MenuBarRenderer {
 
     private static func dynamicTextAttributes(font: NSFont) -> [NSAttributedString.Key: Any] {
         [.font: font, .foregroundColor: NSColor.labelColor]
+    }
+
+    /// The island's low battery warning, which the menu bar reading shares.
+    private static func batteryWarning(for power: PowerReading?) -> BatteryWarning {
+        NotchSupport.menuBarBatteryWarning(percent: power?.chargePercent,
+                                           externalConnected: power?.externalConnected ?? false)
+    }
+
+    static func nsColor(for warning: BatteryWarning) -> NSColor? {
+        switch warning {
+        case .low: return .systemRed
+        case .early: return .systemOrange
+        case .none: return nil
+        }
     }
 
     static func batterySymbol(for percent: Int, isCharging: Bool) -> String {

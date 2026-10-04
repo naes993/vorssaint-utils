@@ -59,6 +59,9 @@ struct NotchSettings: View {
     @AppStorage(DefaultsKey.notchIdleContent) private var idle = NotchIdleContent.music.rawValue
     @AppStorage(DefaultsKey.notchLowBatteryTint) private var lowBatteryTint = false
     @AppStorage(DefaultsKey.notchLowBatteryThreshold) private var lowBatteryThreshold = NotchSupport.defaultLowBatteryThreshold
+    @AppStorage(DefaultsKey.notchLowBatteryEarly) private var earlyBatteryWarning = false
+    @AppStorage(DefaultsKey.notchLowBatteryEarlyThreshold) private var earlyBatteryThreshold = NotchSupport.defaultEarlyBatteryThreshold
+    @AppStorage(DefaultsKey.notchLowBatteryMenuBar) private var lowBatteryMenuBar = true
     @AppStorage(DefaultsKey.notchHiddenControls) private var hiddenControls = NotchControlItem.defaultHidden
     @AppStorage(DefaultsKey.notchControlOrder) private var controlOrder = ""
     @AppStorage(DefaultsKey.notchShowInCaptures) private var showInCaptures = true
@@ -629,26 +632,41 @@ struct NotchSettings: View {
         }
     }
 
-    /// The resting charge can turn red once it runs low, at a level the person picks.
+    /// The resting charge can turn red once it runs low, and amber a little
+    /// earlier, at levels the person picks.
     @ViewBuilder private var lowBatteryControls: some View {
         let strings = NotchLowBatteryStrings.localized(l10n.language)
         switchRow("battery.25percent", strings.title, caption: strings.caption, isOn: $lowBatteryTint)
         if lowBatteryTint {
-            let value = Binding(get: { Double(NotchSupport.sanitizedLowBatteryThreshold(lowBatteryThreshold)) },
-                                set: { lowBatteryThreshold = NotchSupport.sanitizedLowBatteryThreshold(Int($0.rounded())) })
-            let range = NotchSupport.lowBatteryThresholdRange
-            let formatted = "\(Int(value.wrappedValue))%"
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(strings.threshold)
-                    Spacer()
-                    Text(formatted).monospacedDigit().foregroundStyle(.secondary)
-                }
-                Slider(value: value, in: Double(range.lowerBound)...Double(range.upperBound), step: 1) {
-                    Text(strings.threshold)
-                }.labelsHidden().accessibilityValue(formatted)
-            }.padding(.leading, settingsRowTextInset)
+            let red = NotchSupport.sanitizedLowBatteryThreshold(lowBatteryThreshold)
+            levelSlider(strings.threshold, range: NotchSupport.lowBatteryThresholdRange,
+                        value: Binding(get: { red },
+                                       set: { lowBatteryThreshold = NotchSupport.sanitizedLowBatteryThreshold($0) }))
+            switchRow("battery.50percent", strings.early, caption: strings.earlyCaption, isOn: $earlyBatteryWarning)
+            if earlyBatteryWarning {
+                // Amber only means something above the red level.
+                let range = max(red + 1, NotchSupport.earlyBatteryThresholdRange.lowerBound)...NotchSupport.earlyBatteryThresholdRange.upperBound
+                levelSlider(strings.earlyThreshold, range: range,
+                            value: Binding(get: { min(range.upperBound, max(range.lowerBound, earlyBatteryThreshold)) },
+                                           set: { earlyBatteryThreshold = NotchSupport.sanitizedEarlyBatteryThreshold($0) }))
+            }
+            switchRow("menubar.rectangle", strings.menuBar, isOn: $lowBatteryMenuBar)
         }
+    }
+
+    private func levelSlider(_ title: String, range: ClosedRange<Int>, value: Binding<Int>) -> some View {
+        let formatted = "\(value.wrappedValue)%"
+        let slider = Binding(get: { Double(value.wrappedValue) }, set: { value.wrappedValue = Int($0.rounded()) })
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(formatted).monospacedDigit().foregroundStyle(.secondary)
+            }
+            Slider(value: slider, in: Double(range.lowerBound)...Double(range.upperBound), step: 1) {
+                Text(title)
+            }.labelsHidden().accessibilityValue(formatted)
+        }.padding(.leading, settingsRowTextInset)
     }
 
     private var hoverDelayControl: some View {
