@@ -57,6 +57,8 @@ struct NotchSettings: View {
     @AppStorage(DefaultsKey.notchShowPlayingMusic) private var showPlayingMusic = true
     @AppStorage(DefaultsKey.notchIncludeOtherPlayers) private var includeOtherPlayers = false
     @AppStorage(DefaultsKey.notchIdleContent) private var idle = NotchIdleContent.music.rawValue
+    @AppStorage(DefaultsKey.notchLowBatteryTint) private var lowBatteryTint = false
+    @AppStorage(DefaultsKey.notchLowBatteryThreshold) private var lowBatteryThreshold = NotchSupport.defaultLowBatteryThreshold
     @AppStorage(DefaultsKey.notchHiddenControls) private var hiddenControls = NotchControlItem.defaultHidden
     @AppStorage(DefaultsKey.notchControlOrder) private var controlOrder = ""
     @AppStorage(DefaultsKey.notchShowInCaptures) private var showInCaptures = true
@@ -477,6 +479,7 @@ struct NotchSettings: View {
                         idleChoice(.agents, title: FeatureStrings.notchAgents(l10n.language).restingTitle, symbol: "sparkles")
                     }
                 }
+                if restingChoice == .battery { lowBatteryControls }
                 switchRow("menubar.rectangle", text.coverMenus, caption: text.coverMenusHint, isOn: $coversMenus)
             }
             SettingsCard(title: editor.feedback) {
@@ -623,6 +626,28 @@ struct NotchSettings: View {
             SettingsCard(title: editor.privacy) {
                 switchRow("camera.viewfinder", text.showInCaptures, isOn: $showInCaptures)
             }
+        }
+    }
+
+    /// The resting charge can turn red once it runs low, at a level the person picks.
+    @ViewBuilder private var lowBatteryControls: some View {
+        let strings = NotchLowBatteryStrings.localized(l10n.language)
+        switchRow("battery.25percent", strings.title, caption: strings.caption, isOn: $lowBatteryTint)
+        if lowBatteryTint {
+            let value = Binding(get: { Double(NotchSupport.sanitizedLowBatteryThreshold(lowBatteryThreshold)) },
+                                set: { lowBatteryThreshold = NotchSupport.sanitizedLowBatteryThreshold(Int($0.rounded())) })
+            let range = NotchSupport.lowBatteryThresholdRange
+            let formatted = "\(Int(value.wrappedValue))%"
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(strings.threshold)
+                    Spacer()
+                    Text(formatted).monospacedDigit().foregroundStyle(.secondary)
+                }
+                Slider(value: value, in: Double(range.lowerBound)...Double(range.upperBound), step: 1) {
+                    Text(strings.threshold)
+                }.labelsHidden().accessibilityValue(formatted)
+            }.padding(.leading, settingsRowTextInset)
         }
     }
 

@@ -1458,6 +1458,20 @@ enum NotchSupport {
         defaults.object(forKey: DefaultsKey.notchCoversMenus) as? Bool ?? true
     }
 
+    static let defaultLowBatteryThreshold = 10
+    static let lowBatteryThresholdRange = 5...50
+
+    static func sanitizedLowBatteryThreshold(_ value: Int) -> Int {
+        min(lowBatteryThresholdRange.upperBound, max(lowBatteryThresholdRange.lowerBound, value))
+    }
+
+    /// The resting charge turns red at or below the chosen level, once the
+    /// person asks for it, and never while the Mac is plugged in.
+    static func restingBatteryIsLow(percent: Int?, externalConnected: Bool, tint: Bool, threshold: Int) -> Bool {
+        guard tint, !externalConnected, let percent else { return false }
+        return percent <= sanitizedLowBatteryThreshold(threshold)
+    }
+
     /// The closed island stays out of sight until the pointer reaches it, and
     /// shows no notices while it waits.
     static func hidesUntilHover(in defaults: UserDefaults = .standard) -> Bool {

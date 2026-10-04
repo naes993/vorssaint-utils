@@ -679,9 +679,19 @@ struct NotchRestingStrip: View {
     /// Another display's strip, when the island shows on every display.
     var displayGeometry: NotchGeometry? = nil
     @ObservedObject private var music = NotchMusicService.shared
+    @AppStorage(DefaultsKey.notchLowBatteryTint) private var lowBatteryTint = false
+    @AppStorage(DefaultsKey.notchLowBatteryThreshold) private var lowBatteryThreshold = NotchSupport.defaultLowBatteryThreshold
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var geometry: NotchGeometry { displayGeometry ?? service.geometry }
+
+    /// Both halves of the charge turn red together once it runs low.
+    private var batteryTint: Color {
+        NotchSupport.restingBatteryIsLow(percent: service.power.chargePercent,
+                                         externalConnected: service.power.externalConnected,
+                                         tint: lowBatteryTint, threshold: lowBatteryThreshold)
+            ? .red : .white.opacity(0.9)
+    }
 
     /// Centre battery content inside the wing's visible area, past its curved shoulder.
     private var restingBatteryInset: CGFloat {
@@ -714,6 +724,7 @@ struct NotchRestingStrip: View {
                             }
                         case .battery:
                             Image(systemName: "battery.100percent").font(.system(size: 12))
+                                .foregroundStyle(batteryTint)
                                 .padding(.leading, restingBatteryInset)
                         case .agents:
                             NotchAgentRestingWing(leading: true)
@@ -736,6 +747,7 @@ struct NotchRestingStrip: View {
                         case .battery:
                             if let percent = service.power.chargePercent {
                                 Text("\(percent)%").font(.system(size: 9, weight: .medium)).monospacedDigit()
+                                    .foregroundStyle(batteryTint)
                                     .lineLimit(1)
                                     .padding(.trailing, restingBatteryInset)
                             }

@@ -9,6 +9,7 @@ enum NotchActivityTests {
     static func run(_ suite: TestSuite) {
         timerContracts(suite)
         alertContracts(suite)
+        lowBatteryContracts(suite)
         pomodoroContracts(suite)
         stopwatchContracts(suite)
         modePickerContracts(suite)
@@ -95,6 +96,24 @@ enum NotchActivityTests {
                 }
             }
         }
+    }
+
+    private static func lowBatteryContracts(_ suite: TestSuite) {
+        suite.expect(Defaults.registeredDefaults[DefaultsKey.notchLowBatteryTint] as? Bool == false
+               && Defaults.registeredDefaults[DefaultsKey.notchLowBatteryThreshold] as? Int == 10
+               && SettingsBackupSupport.exportKeys().isSuperset(of: [DefaultsKey.notchLowBatteryTint,
+                                                                      DefaultsKey.notchLowBatteryThreshold]),
+               "the low battery tint starts off at 10% and travels with settings backups")
+        func low(_ percent: Int?, plugged: Bool = false, tint: Bool = true, threshold: Int = 10) -> Bool {
+            NotchSupport.restingBatteryIsLow(percent: percent, externalConnected: plugged, tint: tint, threshold: threshold)
+        }
+        suite.expect(low(10) && low(3) && !low(11), "the charge turns red at or below the chosen level")
+        suite.expect(!low(5, tint: false), "the charge keeps its colour while the setting is off")
+        suite.expect(!low(5, plugged: true), "a Mac on power never shows a low charge")
+        suite.expect(!low(nil), "an unknown charge is never shown as low")
+        suite.expect(low(25, threshold: 25) && !low(26, threshold: 25), "the level can be adjusted")
+        suite.expect(low(5, threshold: 0) && !low(6, threshold: 0) && low(50, threshold: 99) && !low(51, threshold: 99),
+                     "a stored level outside the offered range is clamped")
     }
 
     private static func alertContracts(_ suite: TestSuite) {
