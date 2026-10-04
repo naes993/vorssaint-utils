@@ -1464,9 +1464,12 @@ enum NotchSupport {
     }
 
     static let defaultLowBatteryThreshold = 10
-    static let lowBatteryThresholdRange = 5...50
+    /// Both level sliders share this scale so their knobs line up; red stops
+    /// one short of the top so amber always has room above it.
+    static let batteryLevelScale = 1...100
+    static let lowBatteryThresholdRange = 1...99
     static let defaultEarlyBatteryThreshold = 20
-    static let earlyBatteryThresholdRange = 10...80
+    static let earlyBatteryThresholdRange = 2...100
 
     static func sanitizedLowBatteryThreshold(_ value: Int) -> Int {
         min(lowBatteryThresholdRange.upperBound, max(lowBatteryThresholdRange.lowerBound, value))

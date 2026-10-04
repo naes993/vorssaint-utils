@@ -639,7 +639,7 @@ struct NotchSettings: View {
         switchRow("battery.25percent", strings.title, caption: strings.caption, isOn: $lowBatteryTint)
         if lowBatteryTint {
             let red = NotchSupport.sanitizedLowBatteryThreshold(lowBatteryThreshold)
-            levelSlider(strings.threshold, range: NotchSupport.lowBatteryThresholdRange,
+            levelSlider(strings.threshold, range: NotchSupport.batteryLevelScale,
                         value: Binding(get: { red },
                                        set: {
                                            lowBatteryThreshold = NotchSupport.sanitizedLowBatteryThreshold($0)
@@ -649,8 +649,8 @@ struct NotchSettings: View {
                                        }))
             switchRow("battery.50percent", strings.early, caption: strings.earlyCaption, isOn: $earlyBatteryWarning)
             if earlyBatteryWarning {
-                // Both sliders keep their own fixed scale; amber stops just above red.
-                levelSlider(strings.earlyThreshold, range: NotchSupport.earlyBatteryThresholdRange,
+                // Both sliders share one fixed scale; amber stops just above red.
+                levelSlider(strings.earlyThreshold, range: NotchSupport.batteryLevelScale,
                             value: Binding(get: { NotchSupport.earlyBatteryThreshold(earlyBatteryThreshold, above: red) },
                                            set: { earlyBatteryThreshold = NotchSupport.earlyBatteryThreshold($0, above: red) }))
             }

@@ -121,21 +121,22 @@ enum NotchActivityTests {
                      "a Mac on power never shows a warning")
         suite.expect(warning(nil) == .none, "an unknown charge is never shown as low")
         suite.expect(warning(25, threshold: 25) == .low && warning(26, threshold: 25) == .none, "the red level can be adjusted")
-        suite.expect(warning(5, threshold: 0) == .low && warning(6, threshold: 0) == .none
-                     && warning(50, threshold: 99) == .low && warning(51, threshold: 99) == .none,
+        suite.expect(warning(1, threshold: 0) == .low && warning(2, threshold: 0) == .none
+                     && warning(99, threshold: 150) == .low && warning(100, threshold: 150) == .none,
                      "a stored red level outside the offered range is clamped")
         suite.expect(warning(20, early: true) == .early && warning(11, early: true) == .early
                      && warning(10, early: true) == .low && warning(21, early: true) == .none,
                      "the amber warning comes first and gives way to red")
         suite.expect(warning(15) == .none, "the amber warning stays off until it is turned on")
         suite.expect(warning(40, early: true, earlyThreshold: 40) == .early && warning(41, early: true, earlyThreshold: 40) == .none
-                     && warning(80, early: true, earlyThreshold: 99) == .early && warning(81, early: true, earlyThreshold: 99) == .none,
+                     && warning(100, early: true, earlyThreshold: 150) == .early,
                      "the amber level can be adjusted and is clamped")
         suite.expect(NotchSupport.earlyBatteryThreshold(28, above: 26) == 28
                      && NotchSupport.earlyBatteryThreshold(20, above: 26) == 27
                      && NotchSupport.earlyBatteryThreshold(10, above: 5) == 10
-                     && NotchSupport.earlyBatteryThreshold(5, above: 99) == 51
-                     && NotchSupport.earlyBatteryThreshold(99, above: 10) == 80,
+                     && NotchSupport.earlyBatteryThreshold(5, above: 99) == 100
+                     && NotchSupport.earlyBatteryThreshold(150, above: 10) == 100
+                     && NotchSupport.earlyBatteryThreshold(99, above: 150) == 100,
                      "the amber level stays within its range and above the red level")
         let domain = "com.vorssaint.tests.low-battery"
         let defaults = UserDefaults(suiteName: domain)!
