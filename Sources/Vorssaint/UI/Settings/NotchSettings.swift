@@ -641,14 +641,18 @@ struct NotchSettings: View {
             let red = NotchSupport.sanitizedLowBatteryThreshold(lowBatteryThreshold)
             levelSlider(strings.threshold, range: NotchSupport.lowBatteryThresholdRange,
                         value: Binding(get: { red },
-                                       set: { lowBatteryThreshold = NotchSupport.sanitizedLowBatteryThreshold($0) }))
+                                       set: {
+                                           lowBatteryThreshold = NotchSupport.sanitizedLowBatteryThreshold($0)
+                                           // Raising red past amber carries amber along above it.
+                                           earlyBatteryThreshold = NotchSupport.earlyBatteryThreshold(earlyBatteryThreshold,
+                                                                                                     above: lowBatteryThreshold)
+                                       }))
             switchRow("battery.50percent", strings.early, caption: strings.earlyCaption, isOn: $earlyBatteryWarning)
             if earlyBatteryWarning {
-                // Amber only means something above the red level.
-                let range = max(red + 1, NotchSupport.earlyBatteryThresholdRange.lowerBound)...NotchSupport.earlyBatteryThresholdRange.upperBound
-                levelSlider(strings.earlyThreshold, range: range,
-                            value: Binding(get: { min(range.upperBound, max(range.lowerBound, earlyBatteryThreshold)) },
-                                           set: { earlyBatteryThreshold = NotchSupport.sanitizedEarlyBatteryThreshold($0) }))
+                // Both sliders keep their own fixed scale; amber stops just above red.
+                levelSlider(strings.earlyThreshold, range: NotchSupport.earlyBatteryThresholdRange,
+                            value: Binding(get: { NotchSupport.earlyBatteryThreshold(earlyBatteryThreshold, above: red) },
+                                           set: { earlyBatteryThreshold = NotchSupport.earlyBatteryThreshold($0, above: red) }))
             }
             switchRow("menubar.rectangle", strings.menuBar, isOn: $lowBatteryMenuBar)
         }

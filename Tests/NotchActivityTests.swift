@@ -131,6 +131,12 @@ enum NotchActivityTests {
         suite.expect(warning(40, early: true, earlyThreshold: 40) == .early && warning(41, early: true, earlyThreshold: 40) == .none
                      && warning(80, early: true, earlyThreshold: 99) == .early && warning(81, early: true, earlyThreshold: 99) == .none,
                      "the amber level can be adjusted and is clamped")
+        suite.expect(NotchSupport.earlyBatteryThreshold(28, above: 26) == 28
+                     && NotchSupport.earlyBatteryThreshold(20, above: 26) == 27
+                     && NotchSupport.earlyBatteryThreshold(10, above: 5) == 10
+                     && NotchSupport.earlyBatteryThreshold(5, above: 99) == 51
+                     && NotchSupport.earlyBatteryThreshold(99, above: 10) == 80,
+                     "the amber level stays within its range and above the red level")
         let domain = "com.vorssaint.tests.low-battery"
         let defaults = UserDefaults(suiteName: domain)!
         defaults.removePersistentDomain(forName: domain)

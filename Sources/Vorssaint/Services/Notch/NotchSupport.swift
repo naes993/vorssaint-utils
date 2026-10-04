@@ -1476,6 +1476,12 @@ enum NotchSupport {
         min(earlyBatteryThresholdRange.upperBound, max(earlyBatteryThresholdRange.lowerBound, value))
     }
 
+    /// The amber level, kept at least one point above the red one so the
+    /// early warning always comes first.
+    static func earlyBatteryThreshold(_ value: Int, above red: Int) -> Int {
+        max(sanitizedEarlyBatteryThreshold(value), sanitizedLowBatteryThreshold(red) + 1)
+    }
+
     /// The charge turns red at or below the chosen level once the person asks
     /// for it, and amber a little earlier when they want a first warning.
     /// Neither shows while the Mac is plugged in.
