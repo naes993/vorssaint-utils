@@ -116,7 +116,7 @@ enum NotchActivityTests {
         suite.expect(warning(10) == .low && warning(3) == .low && warning(11) == .none,
                      "the charge turns red at or below the chosen level")
         suite.expect(warning(5, tint: false) == .none && warning(15, tint: false, early: true) == .none,
-                     "the charge keeps its colour while the setting is off")
+                     "the charge keeps its color while the setting is off")
         suite.expect(warning(5, plugged: true) == .none && warning(15, plugged: true, early: true) == .none,
                      "a Mac on power never shows a warning")
         suite.expect(warning(nil) == .none, "an unknown charge is never shown as low")
@@ -153,7 +153,7 @@ enum NotchActivityTests {
         defaults.set(false, forKey: DefaultsKey.notchLowBatteryMenuBar)
         suite.expect(NotchSupport.menuBarBatteryWarning(percent: 10, externalConnected: false, in: defaults) == .none
                      && NotchSupport.batteryWarning(percent: 10, externalConnected: false, in: defaults) == .low,
-                     "the menu bar can keep its usual colour while the island warns")
+                     "the menu bar can keep its usual color while the island warns")
     }
 
     private static func alertContracts(_ suite: TestSuite) {
