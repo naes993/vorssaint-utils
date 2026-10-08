@@ -197,7 +197,8 @@ enum MenuBarSegment {
     case text(String)
     case symbol(String)
     case largeSymbol(String)
-    case metricBlock(label: String, value: String, minimumValue: String, style: MenuBarBlockStyle, pressure: MemoryPressure?)
+    case metricBlock(label: String, value: String, minimumValue: String, style: MenuBarBlockStyle,
+                     pressure: MemoryPressure?, warning: BatteryWarning = .none)
     case usageBarBlock(label: String, fraction: Double?, style: MenuBarBlockStyle, pressure: MemoryPressure?)
     case networkBlock(down: String, up: String, style: MenuBarBlockStyle)
     case diskActivityBlock(read: String, write: String, style: MenuBarBlockStyle)
@@ -513,7 +514,8 @@ enum MenuBarRenderer {
                                                     value: value,
                                                     minimumValue: "100% 999°",
                                                     style: style,
-                                                    pressure: nil)])
+                                                    pressure: nil,
+                                                    warning: batteryWarning(for: snapshot.power))])
                     } else if let chargePercent = enabled.contains(.battery) ? snapshot.power?.chargePercent : nil {
                         groups.append([.batteryBlock(percent: chargePercent,
                                                      isCharging: snapshot.power?.isCharging ?? false,
@@ -727,12 +729,13 @@ enum MenuBarRenderer {
                 result.append(symbolAttachment(named: name, stacked: stacked))
             case let .largeSymbol(name):
                 result.append(symbolAttachment(named: name, stacked: stacked, enlarged: true))
-            case let .metricBlock(label, value, minimumValue, style, pressure):
+            case let .metricBlock(label, value, minimumValue, style, pressure, warning):
                 result.append(metricBlockAttachment(label: label,
                                                     value: value,
                                                     minimumValue: minimumValue,
                                                     style: style,
-                                                    pressure: pressure))
+                                                    pressure: pressure,
+                                                    warning: warning))
             case let .usageBarBlock(label, fraction, style, pressure):
                 result.append(usageBarBlockAttachment(label: label,
                                                       fraction: fraction,
@@ -789,12 +792,14 @@ enum MenuBarRenderer {
                                               value: String,
                                               minimumValue: String,
                                               style: MenuBarBlockStyle,
-                                              pressure: MemoryPressure?) -> NSAttributedString {
+                                              pressure: MemoryPressure?,
+                                              warning: BatteryWarning) -> NSAttributedString {
         let image = metricBlockImage(label: label,
                                      value: value,
                                      minimumValue: minimumValue,
                                      style: style,
-                                     pressure: pressure)
+                                     pressure: pressure,
+                                     warning: warning)
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = NSRect(x: 0,
@@ -871,7 +876,8 @@ enum MenuBarRenderer {
                                          value: String,
                                          minimumValue reservedValue: String,
                                          style: MenuBarBlockStyle,
-                                         pressure: MemoryPressure?) -> NSImage {
+                                         pressure: MemoryPressure?,
+                                         warning: BatteryWarning) -> NSImage {
         // Compact spacing hugs the value's digit count (with a stability
         // floor, see MenuBarSpacingSupport) instead of the metric's absolute
         // maximum; the reserve participates in the cache key, so both modes
@@ -880,7 +886,7 @@ enum MenuBarRenderer {
             ? MenuBarSpacingSupport.compactReserve(label: label, value: value)
             : reservedValue
         let pressureKey = pressure.map(String.init(describing:)) ?? "none"
-        let cacheKey = "metric|\(label)|\(value)|\(minimumValue)|\(style)|\(pressureKey)" as NSString
+        let cacheKey = "metric|\(label)|\(value)|\(minimumValue)|\(style)|\(pressureKey)|\(warning)" as NSString
         if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
 
         let labelFont = NSFont.systemFont(ofSize: style == .readable ? 7.2 : 6.6, weight: .medium)
@@ -902,7 +908,8 @@ enum MenuBarRenderer {
             NSColor.clear.setFill()
             rect.fill()
             let labelAttrs = dynamicTextAttributes(font: labelFont)
-            let valueAttrs = dynamicTextAttributes(font: valueFont)
+            var valueAttrs = dynamicTextAttributes(font: valueFont)
+            if let warningColor = nsColor(for: warning) { valueAttrs[.foregroundColor] = warningColor }
             (label as NSString).draw(at: NSPoint(x: (width - labelSize.width) / 2,
                                      y: style == .readable ? 12.9 : 12.0),
                                      withAttributes: labelAttrs)
