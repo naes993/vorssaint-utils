@@ -64,6 +64,12 @@ def main():
                     for prefix in ["    private func refreshLaunchAtLogin()",
                                    "    private func setLaunchAtLogin("])
           + "}\n")
+    cleaner_view = "Sources/Vorssaint/UI/Cleaner/CleanerView.swift"
+    write("CleanerLayout.swift", "import SwiftUI\nextension CleanerLayoutTests.Results {\n"
+          + "".join(declaration(cleaner_view, prefix).replace("    private ", "    @ViewBuilder\n    ", 1)
+                    for prefix in ["    private var resultsState:", "    private var resultsGroups:",
+                                   "    private func section("])
+          + "}\n")
     write("NotchActivityPicker.swift", "import SwiftUI\n"
           + declaration("Sources/Vorssaint/UI/Notch/NotchView.swift", "struct NotchShape: Shape {")
           + declaration("Sources/Vorssaint/UI/Notch/NotchView.swift", "struct NotchActivityPicker: View {"))
@@ -295,6 +301,21 @@ def main():
           + declaration("Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift",
                         "    private func readCPUUsage(").replace("private func", "func", 1)
           + "}\n}\n")
+    monitor = "Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift"
+    write("SystemMonitorPlan.swift", "import Foundation\n"
+          + "extension SystemMonitorPlanTests {\n"
+          + declaration(monitor, "struct SystemMonitorPanelNeeds")
+          + "final class Monitor: Fixture {\n"
+          + declaration(monitor, "    private struct SamplingPlan").replace("private struct", "struct", 1)
+          + declaration(monitor, "    private func currentPlan(").replace("private func", "func", 1)
+          + "}\n}\n")
+    write("SystemSectionBreakdown.swift", "import Foundation\n"
+          + "extension SystemSectionBreakdownTests {\nfinal class Section: Fixture {\n"
+          + declaration("Sources/Vorssaint/UI/MenuPanel/SystemSection.swift",
+                        "    private func refreshBreakdown(").replace("private func", "func", 1)
+          + declaration("Sources/Vorssaint/UI/MenuPanel/SystemSection.swift",
+                        "    private func toggleCPUApps(").replace("private func", "func", 1)
+          + "}\n}\n")
     uninstall = "Sources/Vorssaint/Services/Uninstall/AppUninstaller.swift"
     bar = "Sources/Vorssaint/Services/CommandBar/CommandBarService.swift"
     for host, path in [("Settings", "Sources/Vorssaint/UI/Settings/URLCleanerSettings.swift"),
@@ -477,6 +498,11 @@ def main():
               "    private func isCurrentOutputAdjustment(", "    private var hasCurrentOutputAdjustment:",
               "    private func applyOutputControls(", "    private func drainOutputAdjustment("])
           + "}\n}\n")
+    write("NotchVolumeRouting.swift", "import Foundation\nimport CoreGraphics\n"
+          + "extension NotchVolumeRoutingTests {\nfinal class Service: State {\n"
+          + declaration("Sources/Vorssaint/Services/Audio/PreciseVolumeRollerService.swift",
+                        "    private func routeNotchVolume(").replace("private func", "func", 1)
+          + "}\n}\n")
     mixer_section = "Sources/Vorssaint/UI/MenuPanel/MixerSection.swift"
     write("MixerPercentKey.swift", "import Foundation\nextension MixerPercentKeyTests {\nfinal class Coordinator: Fixture {\n"
           + "".join(declaration(mixer_section, prefix).replace("private func", "func", 1) for prefix in [
@@ -586,6 +612,9 @@ def main():
           + declaration("Sources/Vorssaint/Services/Notch/NotchWindowHost.swift", "final class NotchActivationButton:"))
     write("NotchPanel.swift", "import AppKit\n"
           + declaration("Sources/Vorssaint/Services/Notch/NotchWindowHost.swift", "final class NotchPanel:"))
+    write("QuickTogglesAlert.swift", "import AppKit\nextension QuickTogglesAlertTests {\nfinal class Host: Fixture {\n"
+          + declaration("Sources/Vorssaint/Services/QuickTools/QuickTogglesService.swift", "    func emptyTrash()")
+          + "}\n}\n")
     write("OverlayPanelDeclaration.swift", "import AppKit\n"
           + declaration("Sources/Vorssaint/UI/OverlayPanel.swift", "class OverlayPanel:"))
     shelf = "Sources/Vorssaint/Services/Shelf/ShelfService.swift"
@@ -707,6 +736,7 @@ def main():
               "    private func scheduleTrackNotice(", "    private func releaseTrackHold(",
               "    private func holdEndingTrack("])
           .replace("NotchSupport.routes(notice.event)", "routesNotices")
+          .replace("NotchSupport.closeDelay()", "NotchSupport.sanitizedCloseDelay(UserDefaults.standard.closeDelay)")
           + "}\n}\n")
     music_visibility = "".join(declaration(notch, prefix).replace("    private ", "    ", 1) for prefix in [
         "    private var hiddenUntilHover:", "    var fullscreenCompact:", "    var idleContent:", "    var hasMusicActivity:", "    var compactActivity:",
@@ -731,6 +761,8 @@ def main():
                                                 "AppFeature.monitorDisk.isAvailable(in: ReviewDefaults.current)")
     music_visibility = music_visibility.replace("AppFeature.fanControl.isAvailable",
                                                 "AppFeature.fanControl.isAvailable(in: ReviewDefaults.current)")
+    music_visibility = music_visibility.replace("AppFeature.connectedDevices.isAvailable",
+                                                "AppFeature.connectedDevices.isAvailable(in: ReviewDefaults.current)")
     write("NotchMusicVisibility.swift", "import Foundation\nextension NotchMusicVisibilityTests {\n"
           + "final class Service: State {\n" + music_visibility + "}\n}\n")
     write("NotchScreenEdgeClicks.swift", "import AppKit\nextension NotchScreenEdgeClickTests {\nfinal class Service: State {\n"
@@ -771,6 +803,16 @@ def main():
     write("NotchSectionScrollRoute.swift", "import AppKit\nextension NotchSectionPagingTests {\nfinal class Service: State {\n"
           + "".join(declaration(notch, prefix).replace("    private ", "    ", 1) for prefix in [
               "    private func handleScroll(", "    private func handleSectionScroll("])
+          + "}\n}\n")
+    write("NotchMascotHiding.swift", "import CoreGraphics\nimport Foundation\n"
+          + "extension NotchMascotHidingContract {\nfinal class Service: State {\n"
+          + "".join(declaration(notch, prefix).replace("    fileprivate ", "    ", 1).replace("    private ", "    ", 1)
+                    for prefix in ["    fileprivate func syncMascotHiding(", "    fileprivate func noteMascotStirred()",
+                                   "    private func scheduleMascotTuck(", "    private func tuckMascotIfQuiet(",
+                                   "    private func stageMascotTuck()", "    private func untuckMascot()"])
+              .replace("    func noteMascotStirred()", "    override func noteMascotStirred()")
+              .replace("NotchMascotSupport.hidesWhenIdle()", "hidesWhenIdle")
+              .replace("CACurrentMediaTime()", "mediaTime()")
           + "}\n}\n")
     write("NotchKeyMonitor.swift", "import Foundation\nextension NotchKeyMonitorTests {\nfinal class Service: State {\n"
           + declaration(notch, "    private func installEventMonitors()").replace("private func", "func", 1)
@@ -935,10 +977,20 @@ def main():
     settings_card = "Sources/Vorssaint/UI/Settings/SettingsCard.swift"
     text_inset = next(line for line in (ROOT / settings_card).read_text().splitlines()
                       if line.startswith("let settingsRowTextInset:"))
+    # The Features page's wording and route live outside the tests, so the
+    # row's copy speaks the feature's name and goes nowhere.
+    feature_row = declaration(settings_card, "struct SettingsFeatureSwitchRow")
+    for call, stand_in in [("feature.enableReason(l10n)", "feature.rawValue"), ("feature.showInFeatures()", "_ = feature")]:
+        if call not in feature_row:
+            raise ValueError(f"Expected {call!r} in SettingsFeatureSwitchRow")
+        feature_row = feature_row.replace(call, stand_in)
     write("NotchSettingsChoice.swift", "import SwiftUI\n" + text_inset + "\n\nextension NotchSettingsChoiceTests {\n"
           + "struct MenuBarGlyph: View { var body: some View { EmptyView() } }\n"
+          + "final class FeatureRuntime: ObservableObject {\nstatic let shared = FeatureRuntime()\nvar installed = true\n"
+          + "func isAvailable(_ feature: AppFeature) -> Bool { installed }\n}\n"
           + declaration(settings_card, "struct SettingsCard<")
           + declaration(settings_card, "struct SettingsRow<")
+          + feature_row
           + declaration(settings_card, "struct SettingsChoiceRow<")
           + declaration(settings_card, "struct SettingsMenuRow<")
           + "struct Destination: View {\nlet language: AppLanguage\nlet title: String\n"
@@ -1280,6 +1332,17 @@ def main():
           + declaration(music, "    func refreshAutomation()")
           + declaration(music, "    private func updateAutomation(").replace("private func", "func", 1)
           + "}\n}\n")
+    shuffle = "Sources/Vorssaint/Services/Notch/NotchShuffleService.swift"
+    write("NotchShuffleFlow.swift", "import Foundation\n\nextension NotchMusicAutomationFlowContract {\n"
+          + "final class ShuffleService {\nvar availability: NotchMusicAutomation.Availability?\nvar enabled: Bool?\n"
+          + "var allowed = true\nvar pending = false\nvar requestingAccess = false\nlet queue = ShuffleQueue()\n"
+          + "var generation = UUID()\nvar switchID = UUID()\nvar open = false\n"
+          + declaration(shuffle, "    var isOffered:")
+          + declaration(shuffle, "    func refresh(for playback:")
+          + declaration(shuffle, "    func toggle()")
+          + declaration(shuffle, "    func stop()")
+          + declaration(shuffle, "    private func requestAccess(").replace("private func", "func", 1)
+          + "}\n}\n")
 
     brightness_row = "Sources/Vorssaint/UI/MenuPanel/BrightnessSection.swift"
     write("SoftwareDimmingRow.swift", "import CoreGraphics\nimport Foundation\n\n"
@@ -1465,6 +1528,7 @@ def main():
                     .replace("AXIsProcessTrusted()", "WindowEdgeSnapRuntimeTests.accessibilityGranted")
                     for prefix in [
               "    private func observeEdgeSnapEvent(",
+              "    private static func seconds(of event: CGEvent)",
               "    private func handleEdgeSnapInput(",
               "    private func applyDelayedEdgeSnapIfMoved(",
               "    private func edgeSnapWindowFollowed(",
@@ -1472,6 +1536,11 @@ def main():
               "    private func resolveEdgeSnapWindow(",
               "    private func makeEdgeSnapDrag(",
               "    private func updateEdgeSnapDrag(",
+              "    private func edgeSnapTarget(",
+              "    private var edgeSnapLayout:",
+              "    private func scheduleEdgeSnapStillCheck()",
+              "    private func armEdgeSnapStillCheck(",
+              "    private func resetEdgeSnapTrail()",
               "    private func applyEdgeSnap(",
               "    private func cancelEdgeSnapTracking()"])
           + "}\n}\n")

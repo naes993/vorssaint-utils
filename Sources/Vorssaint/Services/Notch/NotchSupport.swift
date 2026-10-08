@@ -26,7 +26,8 @@ enum NotchModule: String, CaseIterable, Identifiable {
         case .captures: return "camera.viewfinder"
         case .files: return "tray.full"
         case .system: return "gauge.with.dots.needle.50percent"
-        case .tools: return "square.grid.2x2"
+        // The quick panel's own mark; the grid belongs to the sections button.
+        case .tools: return AppFeature.quickLauncher.symbolName
         case .scratchpad: return "note.text"
         case .agents: return "sparkles"
         case .watch: return "eye"
@@ -77,7 +78,7 @@ enum NotchModule: String, CaseIterable, Identifiable {
         case .watch: return AppFeature.notchWatch.isAvailable(in: defaults)
         case .system:
             return [.monitorCPU, .monitorGPU, .monitorMemory, .monitorNetwork,
-                    .monitorDisk, .monitorPower, .fanControl].contains { (feature: AppFeature) in
+                    .monitorDisk, .monitorPower, .fanControl, .connectedDevices].contains { (feature: AppFeature) in
                 feature.isAvailable(in: defaults)
             }
         }
@@ -485,6 +486,23 @@ enum NotchLayout {
     /// volume and the lyrics or queue toggles.
     static func musicPlayerHeight(layout: NotchSize, height: CGFloat) -> CGFloat {
         min(layout == .spacious ? 148 : 120, max(88, height - musicControlsRowHeight - rowSpacing))
+    }
+
+    /// How the music page divides its height between the player and an open
+    /// extra, lyrics or the queue. The island grows to hold both, so the
+    /// player keeps the height it had at rest, however far the island has
+    /// grown; measuring it again from the growing page made it shrink by the
+    /// gap and flicker. Where the island cannot grow enough, as at a custom
+    /// size, the player yields to the extra below a legible height.
+    static func musicSplit(height: CGFloat, controlsRow: CGFloat, extras: CGFloat, resting: CGFloat,
+                           keepsPlayer: Bool, extraOpen: Bool = true) -> (player: CGFloat, extra: CGFloat, showsPlayer: Bool) {
+        let page = max(0, height - controlsRow)
+        guard extraOpen else { return (page, 0, true) }
+        if keepsPlayer {
+            return (resting, min(extras, max(0, page - resting - rowSpacing)), true)
+        }
+        let extra = min(extras, page)
+        return (max(0, page - extra - rowSpacing), extra, page - extra - rowSpacing >= 88)
     }
 }
 
@@ -1187,13 +1205,37 @@ struct NotchQuickAccessConfiguration: Equatable, Codable {
 
     static func current(in defaults: UserDefaults = .standard) -> Self {
         var configuration = stored(in: defaults)
-        configuration.buttons.removeAll { $0.action?.isAvailable(in: defaults) != true }
+        configuration.buttons = configuration.shown(in: defaults)
         return configuration
+    }
+
+    /// The buttons the island shows. One whose section or feature is off
+    /// keeps its place, so it comes back there once that is on again.
+    func shown(in defaults: UserDefaults = .standard) -> [NotchQuickButton] {
+        buttons.filter { $0.action?.isAvailable(in: defaults) == true }
+    }
+
+    /// Whether a side has a free place. A hidden button still holds its own.
+    func hasRoom(on side: NotchQuickAccessSide) -> Bool {
+        buttons.filter { $0.side == side }.count < Self.maximumPerSide
+    }
+
+    /// Swaps a button with its neighbour on the same side. False when it is
+    /// already at that end, so there is nothing to save.
+    @discardableResult
+    mutating func reorder(_ id: UUID, by offset: Int) -> Bool {
+        guard let from = buttons.firstIndex(where: { $0.id == id }) else { return false }
+        let side = buttons[from].side
+        let items = buttons.filter { $0.side == side }
+        guard let index = items.firstIndex(where: { $0.id == id }), items.indices.contains(index + offset),
+              let to = buttons.firstIndex(where: { $0.id == items[index + offset].id }) else { return false }
+        buttons.swapAt(from, to)
+        return true
     }
 
     mutating func move(_ id: UUID, to side: NotchQuickAccessSide, before target: UUID? = nil) {
         guard let index = buttons.firstIndex(where: { $0.id == id }),
-              buttons[index].side == side || buttons.filter({ $0.side == side }).count < Self.maximumPerSide else { return }
+              buttons[index].side == side || hasRoom(on: side) else { return }
         var item = buttons.remove(at: index)
         item.side = side
         let destination = target.flatMap { target in buttons.firstIndex(where: { $0.id == target && $0.side == side }) }
@@ -1344,6 +1386,19 @@ enum NotchSupport {
 
     static func sanitizedHoverDelay(_ value: TimeInterval) -> TimeInterval {
         value.isFinite ? min(hoverDelayRange.upperBound, max(hoverDelayRange.lowerBound, value)) : defaultHoverDelay
+    }
+
+    /// How long an island opened by hover waits after the pointer leaves.
+    static let defaultCloseDelay = NotchQuickAccessLayout.hoverExitDelay
+    static let closeDelayRange = 0.10...2.0
+
+    static func sanitizedCloseDelay(_ value: TimeInterval) -> TimeInterval {
+        value.isFinite ? min(closeDelayRange.upperBound, max(closeDelayRange.lowerBound, value)) : defaultCloseDelay
+    }
+
+    /// An unset value keeps the old pause rather than reading as zero.
+    static func closeDelay(in defaults: UserDefaults = .standard) -> TimeInterval {
+        sanitizedCloseDelay(defaults.object(forKey: DefaultsKey.notchCloseDelay) as? Double ?? defaultCloseDelay)
     }
 
     static func moduleShortcut(_ characters: String, modules: [NotchModule]) -> NotchModule? {
@@ -1545,10 +1600,19 @@ enum NotchSupport {
 
     static func idleContent(in defaults: UserDefaults = .standard) -> NotchIdleContent {
         let choice = NotchIdleContent(rawValue: defaults.string(forKey: DefaultsKey.notchIdleContent) ?? "") ?? .none
-        if choice == .battery, !AppFeature.monitorPower.isAvailable(in: defaults) { return .none }
-        if choice == .music, !modules(in: defaults).contains(.music) { return .none }
-        if choice == .agents, !NotchAgentSupport.isEnabled(in: defaults) { return .none }
-        return choice
+        return canRest(with: choice, in: defaults) ? choice : .none
+    }
+
+    /// Whether the closed island can rest with this content now. A choice it
+    /// cannot show waits, still chosen, until its section or feature is back.
+    /// The island's own switch stands apart, since it rules out every choice.
+    static func canRest(with content: NotchIdleContent, in defaults: UserDefaults = .standard) -> Bool {
+        switch content {
+        case .none: return true
+        case .battery: return AppFeature.monitorPower.isAvailable(in: defaults)
+        case .music: return modules(in: defaults).contains(.music)
+        case .agents: return NotchAgentSupport.sectionShows(in: defaults)
+        }
     }
 
     static func visibleIdleContent(isPlaying: Bool, in defaults: UserDefaults = .standard) -> NotchIdleContent {
@@ -1576,6 +1640,7 @@ enum NotchSupport {
             + (hasBattery && AppFeature.monitorPower.isAvailable(in: defaults) ? 1 : 0)
             + (AppFeature.monitorPower.isAvailable(in: defaults) ? 1 : 0)
             + (fans > 0 && AppFeature.fanControl.isAvailable(in: defaults) ? 1 : 0)
+            + (AppFeature.connectedDevices.isAvailable(in: defaults) ? 1 : 0)
     }
 
     /// Direct openings are dismissed explicitly, never by the pointer's
@@ -1791,6 +1856,8 @@ struct NotchGeometry: Equatable {
     /// notice reaches further toward its wider side. Zero everywhere else.
     var surfaceShift: CGFloat = 0
     let cameraWidth: CGFloat
+    /// The island's camera region, including optional menu-bar coverage,
+    /// manual fit and outline clearance, rather than just the hardware inset.
     let cameraHeight: CGFloat
     let isNotched: Bool
     let layout: NotchSize
@@ -1821,7 +1888,7 @@ struct NotchGeometry: Equatable {
          menuBarHeight: CGFloat = 24, compactSideRoom: CGFloat? = nil,
          customWidth: Double = NotchSize.defaultWidth, customHeight: Double = NotchSize.defaultHeight,
          cameraFit: NotchCameraFit = .zero, silhouette: NotchSilhouette = .notch, capsuleFit: NotchCapsuleFit = .zero,
-         outline: Bool = false, barEdge: CGFloat = 0) {
+         hideMenuBarGap: Bool = true, outline: Bool = false, barEdge: CGFloat = 0) {
         self.screen = screen
         self.layout = layout
         self.customWidth = NotchSize.clamped(customWidth, to: NotchSize.widthRange, fallback: NotchSize.defaultWidth)
@@ -1856,7 +1923,14 @@ struct NotchGeometry: Equatable {
         self.cameraWidth = min(isNotched ? max(0, cameraWidth + fit.width + room * 2)
                                : gap == nil ? simulated : (simulated + capsuleFit.width).rounded(),
                                screen.width * 0.7)
-        cameraHeight = isNotched ? min(max(0, safeAreaTop + fit.height + room), 64) : stripHeight
+        if isNotched {
+            // The menu bar can extend slightly below the camera's safe area.
+            // Optionally cover its full height before applying a manual fit.
+            let baseHeight = hideMenuBarGap ? max(safeAreaTop, barHeight) : safeAreaTop
+            cameraHeight = min(max(0, baseHeight + fit.height + room), 64)
+        } else {
+            cameraHeight = stripHeight
+        }
         self.menuBarHeight = max(cameraHeight, barHeight)
         self.compactSideRoom = compactSideRoom
     }
@@ -1893,9 +1967,7 @@ struct NotchGeometry: Equatable {
         max(headerTopInset + headerRowHeight / 2,
             menuBarHeight + 6 + NotchQuickAccessLayout.diameter / 2)
     }
-    /// One row beside the camera. It extends the cutout, whose height a
-    /// physical camera sets and a simulated one shares with the bar: a bar
-    /// even a point taller would leave a dark line under the notch.
+    /// One row beside the camera, including menu-bar coverage when enabled.
     var stripHeight: CGFloat { cameraHeight }
     /// What a strip shows inside: all of it, or the capsule within its margins.
     var stripBodyHeight: CGFloat { max(0, stripHeight - (floatingGap ?? 0) * 2) }
@@ -1929,8 +2001,8 @@ struct NotchGeometry: Equatable {
         let capsule = max(NotchLayout.capsuleRestingAspect * stripBodyHeight + capsuleWidthFit, stripBodyHeight * 2)
         return CGSize(width: min(cameraWidth, (capsule + shoulders).rounded()), height: cameraHeight)
     }
-    /// Full screen and the Lock Screen draw no outline, so their black cutout
-    /// keeps to the camera instead of showing the outline's room below it.
+    /// Full screen and the Lock Screen remove outline clearance while keeping
+    /// the chosen menu-bar coverage and manual fit.
     var bareCutout: CGSize {
         let resting = restingSize(showsContent: false)
         return CGSize(width: max(0, resting.width - outlineRoom * 2), height: max(0, resting.height - outlineRoom))
@@ -2179,6 +2251,9 @@ struct NotchGeometry: Equatable {
     /// Lyrics and the queue open below the player; custom heights keep them
     /// within the chosen limit and the page swaps the player out instead.
     var musicExtrasHeight: CGFloat { layout == .custom ? min(216, contentBudget) : 216 }
+    /// The player's height at rest. The island keeps this room for it, and
+    /// the page holds it there while lyrics or the queue grow the island.
+    var musicPlayerHeight: CGFloat { NotchLayout.musicPlayerHeight(layout: layout, height: contentBudget) }
 
     func systemRows(cards: Int) -> Int {
         NotchLayout.systemRowRanges(count: cards, width: contentWidth - NotchLayout.systemHoverInset(width: contentWidth) * 2).count
@@ -2234,7 +2309,7 @@ struct NotchGeometry: Equatable {
                 contentHeight = min(budget, home.height == 0 ? NotchLayout.emptyHeight : home.height)
             case .music:
                 let controlsRow = musicHasControlsRow ? NotchLayout.musicControlsRowHeight + NotchLayout.rowSpacing : 0
-                let player = musicHasContent ? NotchLayout.musicPlayerHeight(layout: layout, height: budget) : NotchLayout.musicIdleHeight
+                let player = musicHasContent ? musicPlayerHeight : NotchLayout.musicIdleHeight
                 contentHeight = min(budget, player + controlsRow) + max(0, musicExtraHeight)
             case .system:
                 let cards = max(0, systemCards)

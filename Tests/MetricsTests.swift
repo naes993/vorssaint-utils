@@ -19,6 +19,8 @@ struct MetricsTests {
                 MenuBarBatteryWarningTests.run(suite)
                 ProcessNameContract.run(suite)
                 SystemMonitorCPUTests.run(suite)
+                SystemMonitorPlanTests.run(suite)
+                SystemSectionBreakdownTests.run(suite)
             }),
             ("clipboard", { ClipboardFeatureTests.run(suite) }),
             ("pointer-input", {
@@ -97,6 +99,7 @@ struct MetricsTests {
             }),
             ("utilities", {
                 UtilitiesFeatureTests.run(suite)
+                QuickTogglesAlertTests.run(suite)
                 PortManagerRefreshTests.run(suite)
             }),
             ("settings", {
@@ -146,6 +149,7 @@ struct MetricsTests {
                 CleanerEligibilityTests.run(suite)
                 CleanerLastRunContract.run(suite)
                 CleanerScanFlowTests.run(suite)
+                CleanerLayoutTests.run(suite)
             }),
             ("uninstaller", {
                 UninstallerFlowTests.run(suite)

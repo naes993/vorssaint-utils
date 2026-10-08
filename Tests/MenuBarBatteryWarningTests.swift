@@ -13,6 +13,15 @@ enum MenuBarBatteryWarningTests {
         var batteryTemperature: Double?
     }
     enum Renderer {
+        typealias MenuBarSegment = MenuBarBatteryWarningTests.MenuBarSegment
+        typealias MenuBarBlockStyle = MenuBarBatteryWarningTests.MenuBarBlockStyle
+        typealias SystemSnapshot = MenuBarBatteryWarningTests.SystemSnapshot
+        typealias MenuBarMetric = MenuBarBatteryWarningTests.MenuBarMetric
+        typealias MemoryPressure = MenuBarBatteryWarningTests.MemoryPressure
+        typealias PowerReading = MenuBarBatteryWarningTests.PowerReading
+        typealias ReviewDefaults = MenuBarBatteryWarningTests.ReviewDefaults
+        typealias MenuBarMetricSpacing = MenuBarBatteryWarningTests.MenuBarMetricSpacing
+        typealias MenuBarMetricAppearance = MenuBarBatteryWarningTests.MenuBarMetricAppearance
         static let blockImageCache = NSCache<NSString, NSImage>()
         static let legacyBlockAttachmentNudge: CGFloat = 0
         static var style = MenuBarBlockStyle.dense
